@@ -1,6 +1,7 @@
 #include "mfem.hpp"
 #include "LILS.hpp"
 #include <fstream>
+#include <filesystem>
 #include <iostream>
 
 using namespace std;
@@ -147,6 +148,7 @@ int main(int argc, char *argv[])
     real_t t_final = 1.0;
     LinearImplicitLinearSolve LILS(M, K, dt);
     Vector u = X;
+    Vector u_prev(u.Size());
     Vector u_next(u.Size());
     GridFunction u_lagged_gf(&fespace);
     GridFunctionCoefficient u_lagged_coef(&u_lagged_gf);
@@ -163,6 +165,7 @@ int main(int argc, char *argv[])
 
     while (t < t_final)
     {
+        u_prev = u;
         CopyLaggedState(u, u_lagged_gf);
         BilinearForm a_lagged(&fespace);
         a_lagged.AddDomainIntegrator(new DiffusionIntegrator(k_eff));
@@ -197,15 +200,31 @@ int main(int argc, char *argv[])
     real_t Mx_norm = Mx.Norml2();
     real_t Kx_norm = Kx.Norml2();
 
-    //      Residual r = Kx - B
+    //      Residual r = Kx - B + M(u^n+1 - u^n)/dt
+    Vector du(u.Size());
+    du = u;
+    du -= u_prev;      // u^(n+1) - u^n
+    
+    Vector Mdu(u.Size());
+    M.Mult(du, Mdu);   // M * (u_next - u)
+    Mdu /= dt;          // divide by dt
+
     Vector r(u.Size());
     r = Kx;
     r -= B;
+    r += Mdu;
     real_t r_l2 = r.Norml2();
     
 
     cout << "B L2: " << B_norm << ", Mx L2: " << Mx_norm << ", Kx L2: " << Kx_norm << endl;
     cout << "Residual L2: " << r_l2 << endl;
+
+    //  14. Output the L2 norm of the residual to a file.
+    string results = "L2_Results_heat3-LILS";
+    filesystem::create_directory(results);
+    ofstream outfile(results + "/L2outputFile_heat3-LILS.txt");
+    outfile << r_l2 << endl;
+    outfile.close();
 
     return 0;
 }
