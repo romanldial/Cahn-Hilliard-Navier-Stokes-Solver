@@ -5,6 +5,7 @@
 #pragma once
 
 #include "mfem.hpp"
+#include "LILS.hpp"
 
 class ChemicalPotentialOperator : public mfem::Operator
 {
@@ -18,7 +19,10 @@ public:
     ChemicalPotentialOperator(mfem::FiniteElementSpace  &fespace,
                               mfem::Vector              &X,
                               const mfem::Array<int>    &ess_tdof_list,
+                              mfem::real_t              dt,
                               const Params              &params = Params());
+    
+    ~ChemicalPotentialOperator();
 
     void SolveSystem(mfem::Vector  &phi_current,
                      mfem::Vector  &phi_next,
@@ -35,8 +39,12 @@ public:
     const mfem::Vector       &GetMu()    const;
 
 private:
-    mfem::FiniteElementSpace  &fespace_;
-    const mfem::Array<int>    &ess_tdof_list_;
+    LinearImplicitLinearSolve* lils_;
+    mfem::real_t               dt_;
+    mfem::Vector               X_;
+
+    mfem::FiniteElementSpace   &fespace_;
+    const mfem::Array<int>     &ess_tdof_list_;
     Params                     params_;
 
     mfem::ConstantCoefficient  negativeOneCoefficient;
