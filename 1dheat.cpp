@@ -15,6 +15,7 @@
 
                    u(x,t) = 6 * sin(M_PI * x / L) * e^(-kappa (M_PI / L)^2 * t )
 
+    We will also do a visualization using Visit.
 */
 
 #include "mfem.hpp"
@@ -95,15 +96,32 @@ mfem::FunctionCoefficient exactCoef(exact_func);
 std::ofstream l2_out("l2_error.csv");
 l2_out << "time,l2_error\n";
 
+
+mfem::VisItDataCollection visit_dc("heat_equation_1d", mesh);
+visit_dc.SetPrefixPath("/lustre/isaac24/scratch/rdial/mfem/mfem-4.9/examples/output");       
+visit_dc.RegisterField("temperature", &x);  
+visit_dc.SetCycle(0);
+visit_dc.SetTime(0.0);
+visit_dc.Save();
+int step = 0;
+int vis_steps = 10;
+
 while (t < t_final) {
     LILS.Step(x_current, x_next);  
     x_current = x_next;             
     t += dt;
-    x.SetFromTrueDofs(x_current);  
+    step++;
+    x.SetFromTrueDofs(x_current); 
 
     mfem::real_t l2_error = x.ComputeL2Error(exactCoef);
     std::cout << "t = " << t << "  L2 Error = " << l2_error << "\n";
     l2_out << t << "," << l2_error << "\n";
+     
+    if (step % vis_steps == 0) {
+        visit_dc.SetCycle(step);
+        visit_dc.SetTime(t);
+        visit_dc.Save();
+    }
 }
 x.SetFromTrueDofs(x_current);
 
@@ -115,6 +133,7 @@ mfem::real_t Mx_norm = Mx.Norml2();
 mfem::real_t Kx_norm = Kx.Norml2();
 std::cout << "Mass Term Norm: " << Mx_norm << "\n";
 std::cout << "Stiffness Term Norm: " << Kx_norm << "\n";
+
 
 
 return 0;
