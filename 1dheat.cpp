@@ -97,14 +97,15 @@ std::ofstream l2_out("l2_error.csv");
 l2_out << "time,l2_error\n";
 
 
-mfem::VisItDataCollection visit_dc("heat_equation_1d", mesh);
-visit_dc.SetPrefixPath("/lustre/isaac24/scratch/rdial/mfem/mfem-4.9/examples/output");       
-visit_dc.RegisterField("temperature", &x);  
-visit_dc.SetCycle(0);
-visit_dc.SetTime(0.0);
-visit_dc.Save();
+mfem::VisItDataCollection *visit_dc = new mfem::VisItDataCollection("heat_equation_1d", &mesh);
+visit_dc->SetPrefixPath("/lustre/isaac24/scratch/rdial/mfem/mfem-4.9/examples/output");
+visit_dc->SetPrecision(8);
+visit_dc->RegisterField("temperature", &x);
+visit_dc->SetCycle(0);
+visit_dc->SetTime(0.0);
+visit_dc->Save();
 int step = 0;
-int vis_steps = 10;
+int vis_steps = 1;
 
 while (t < t_final) {
     LILS.Step(x_current, x_next);  
@@ -118,9 +119,9 @@ while (t < t_final) {
     l2_out << t << "," << l2_error << "\n";
      
     if (step % vis_steps == 0) {
-        visit_dc.SetCycle(step);
-        visit_dc.SetTime(t);
-        visit_dc.Save();
+        visit_dc->SetCycle(step);
+        visit_dc->SetTime(t);
+        visit_dc->Save();
     }
 }
 x.SetFromTrueDofs(x_current);
@@ -134,7 +135,7 @@ mfem::real_t Kx_norm = Kx.Norml2();
 std::cout << "Mass Term Norm: " << Mx_norm << "\n";
 std::cout << "Stiffness Term Norm: " << Kx_norm << "\n";
 
-
+delete visit_dc;
 
 return 0;
 }
