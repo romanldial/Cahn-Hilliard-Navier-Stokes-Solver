@@ -6,10 +6,13 @@
 #include "LILS.hpp"
 #include <iostream>
 
+using namespace std;
+using namespace mfem;
+
 int main(int argc, char *argv[])
 {
     //      Set mesh file - here it is a 1D segment
-    mfem::Mesh   mesh("ref-segment.mesh", 1, 1);
+    mfem::Mesh   mesh("../data/ref-segment.mesh", 1, 1);
     int dim      = mesh.Dimension();
 
     //      Refine the mesh - 50 elements uniformly refined
@@ -32,11 +35,13 @@ int main(int argc, char *argv[])
     //      Initalize the grid functions
     mfem::GridFunction    phi_current(fespace);
     mfem::GridFunction    phi_lagged(fespace);
-    mfem::GridFunction    phi_inital(fespace);
-    phi_current                = 0.0;
-    phi_lagged                 = 0.0;
-    phi_inital                 = 1.0;
-
+    mfem::FunctionCoefficient ic([](const mfem::Vector &x) {
+    return tanh((x[0] - 0.5) / 0.1);
+    });
+    phi_current                = 1e-6;
+    phi_lagged                 = 1e-6;
+    phi_current.ProjectCoefficient(ic);
+    phi_lagged                 = phi_current;
     //      Initalize the boundaries to be marked as essensial and the list that 
     //      will hold the location of those boundaries. There are set to a 
     //      Dirichlet Boundary Condition.
@@ -46,30 +51,47 @@ int main(int argc, char *argv[])
     fespace->GetEssentialTrueDofs(ess_bdr, ess_tdof_list);
 
     //      Initalize and set up the Chemical Potential Operator.
-    ChemicalPotentialOperator chemPotOp = ChemicalPotentialOperator(
-                                            fespace,
-                                            phi_current,
-                                            ess_tdof_list);
+    mfem::real_t dt     = 1e-2;
+
+    std::cout << "Building ChemicalPotentialOperator..." << std::endl;
+
+    ChemicalPotentialOperator::Params params;
+    params.epsilon = 1.0;
+    params.sigma   = 1.0;
+
+    ChemicalPotentialOperator chemPotOp(*fespace,
+                                         phi_current,
+                                         ess_tdof_list,
+                                         dt,
+                                         params);
+
+    std::cout << "ChemicalPotentialOperator built." << std::endl;
+
     mfem::real_t epsilon   = 1.0;
     mfem::real_t sigma     = 1.0;
     chemPotOp.SetEpsilon(epsilon);
+        std::cout << "Epsilon set." << std::endl;
     chemPotOp.SetSigma(sigma);
+        std::cout << "Sigma set." << std::endl;
 
     //      Set up loop for integration. Dont forget to rebuild the lagged
     //      term after the loop (for postprocessing norms).
-    phi_lagged = phi_inital;
     mfem::real_t t_i    = 1e-6;
-    mfem::real_t dt     = 1e-2;
     mfem::real_t t_f    = 1.0;
+    int step = 0;
     while (t_i < t_f) {
+        std::cout << "Step " << step << " t=" << t_i << std::endl;
         chemPotOp.UpdatePhi(phi_lagged);
+        std::cout << "  Phi Updated" << std::endl;
         chemPotOp.SolveSystem(phi_current,
                               phi_lagged,
                               dt);
+        std::cout << "  System Solved" << std::endl;
         phi_lagged = phi_current;
         t_i += dt;
+        step++;
     };
-
+    std::cout << "  Time Integration Completed" << std::endl;
     //      Get L2 norms for verification. 
     //      Residual r = RHS_K*phi - mu + LHS_M*(phi_current - phi_lagged)/dt
     Vector Kphi(phi_current.Size());

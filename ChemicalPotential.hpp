@@ -12,8 +12,9 @@ class ChemicalPotentialOperator : public mfem::Operator
 public:
     struct Params
     {
-        mfem::real_t epsilon = 1.0;
-        mfem::real_t sigma   = 1.0;
+        mfem::real_t epsilon;
+        mfem::real_t sigma;
+        Params() : epsilon(1.0), sigma(1.0) {}
     };
 
     ChemicalPotentialOperator(mfem::FiniteElementSpace  &fespace,
@@ -28,7 +29,7 @@ public:
                      mfem::Vector  &phi_next,
                      mfem::real_t   dt);
 
-    void UpdatePhi(const mfem::Vector &X);
+    void UpdatePhi(const mfem::GridFunction &phi);
 
     void SetEpsilon(mfem::real_t epsilon);
     void SetSigma(mfem::real_t sigma);
@@ -38,6 +39,8 @@ public:
     const mfem::SparseMatrix &GetRHS_K() const;
     const mfem::Vector       &GetMu()    const;
 
+    void Mult(const mfem::Vector &x, mfem::Vector &y) const override {}
+
 private:
     LinearImplicitLinearSolve* lils_;
     mfem::real_t               dt_;
@@ -46,10 +49,6 @@ private:
     mfem::FiniteElementSpace   &fespace_;
     const mfem::Array<int>     &ess_tdof_list_;
     Params                     params_;
-
-    mfem::ConstantCoefficient  negativeOneCoefficient;
-    mfem::ConstantCoefficient  firstIntConstant;
-    mfem::ConstantCoefficient  secondIntConstant;
 
     mfem::GridFunction         phi_lagged_gf_;
 

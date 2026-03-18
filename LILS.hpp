@@ -28,14 +28,14 @@ private:
    void BuildSystemMatrix();
    void ConfigureLinearSolver();
 
-   mfem::SparseMatrix &M_;
-   mfem::SparseMatrix &K_;
+   mfem::SparseMatrix M_;
+   mfem::SparseMatrix K_;
    mfem::real_t dt_;
 
    std::unique_ptr<mfem::SparseMatrix> T_;
    mfem::Vector rhs_;
    std::unique_ptr<mfem::DSmoother> A_prec_;
-   mfem::CGSolver lin_solver_;
+   std::unique_ptr<mfem::CGSolver> lin_solver_;
 };
 
 #endif

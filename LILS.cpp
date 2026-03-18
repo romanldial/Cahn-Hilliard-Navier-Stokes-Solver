@@ -23,8 +23,12 @@ LinearImplicitLinearSolve::LinearImplicitLinearSolve(mfem::SparseMatrix &M,
      rhs_(M.Height()),    // Right-hand side vector
      lin_solver_()        // Linear solver
 {
+   std::cout << "    LILS: Building system matrix..." << std::endl;
    BuildSystemMatrix();
+   std::cout << "    LILS: T_ size: " << T_->Height() << "x" << T_->Width() << std::endl;
+   std::cout << "    LILS: Configuring solver..." << std::endl;
    ConfigureLinearSolver();
+   std::cout << "    LILS: Constructor done." << std::endl;
 }
 
 void LinearImplicitLinearSolve::SetTimeStep(const mfem::real_t dt)
@@ -43,7 +47,7 @@ void LinearImplicitLinearSolve::Step(mfem::Vector &u_current,
                                      mfem::Vector &u_next)
 {
    M_.Mult(u_current, rhs_);
-   lin_solver_.Mult(rhs_, u_next);
+   lin_solver_->Mult(rhs_, u_next);
 
    mfem::Vector Au(rhs_.Size());
    T_->Mult(u_next, Au);
@@ -59,7 +63,7 @@ void LinearImplicitLinearSolve::Step(mfem::Vector &u_current,
 {
    M_.Mult(u_current, rhs_);
    rhs_.Add(dt_, source);
-   lin_solver_.Mult(rhs_, u_next);
+   lin_solver_->Mult(rhs_, u_next);
 
 
    mfem::Vector Au(rhs_.Size());
@@ -72,39 +76,45 @@ void LinearImplicitLinearSolve::Step(mfem::Vector &u_current,
 
 void LinearImplicitLinearSolve::BuildSystemMatrix()
 {
-   T_.reset(mfem::Add(1.0, M_, dt_, K_));
+   std::cout << "      M_ finalized: " << M_.Finalized() << std::endl;
+   std::cout << "      K_ finalized: " << K_.Finalized() << std::endl;
+   std::cout << "      M_ num nonzero elements: " << M_.NumNonZeroElems() << std::endl;
+   std::cout << "      K_ num nonzero elements: " << K_.NumNonZeroElems() << std::endl;
+   if (!M_.Finalized()) M_.Finalize();
+   if (!K_.Finalized()) K_.Finalize();
+   
+   std::cout << "      Cloning M_..." << std::endl;
+   auto newT = std::make_unique<mfem::SparseMatrix>(M_);
+   std::cout << "      Adding dt*K_..." << std::endl;
+   newT->Add(dt_, K_);                      // T = M + dt*K
+   std::cout << "      Finalizing T_..." << std::endl;
+   newT->Finalize();
+   std::cout << "      T_ size: " << newT->Height() << "x" << newT->Width() << std::endl;
+   T_ = std::move(newT);
 }
 
 void LinearImplicitLinearSolve::ConfigureLinearSolver()
 {
-   auto new_prec = std::make_unique<mfem::DSmoother>(*T_);
-   lin_solver_.SetOperator(*T_);
-   lin_solver_.SetPreconditioner(*new_prec);
-   A_prec_ = std::move(new_prec);
-   lin_solver_.SetRelTol(1e-8);
-   lin_solver_.SetAbsTol(0.0);
-   lin_solver_.SetMaxIter(1000);
-   lin_solver_.SetPrintLevel(0);
+   A_prec_ = std::make_unique<mfem::DSmoother>(*T_);
+   lin_solver_ = std::make_unique<mfem::CGSolver>();
+   lin_solver_->SetOperator(*T_);
+   lin_solver_->SetPreconditioner(*A_prec_);
+   lin_solver_->SetRelTol(1e-8);
+   lin_solver_->SetAbsTol(0.0);
+   lin_solver_->SetMaxIter(1000);
+   lin_solver_->SetPrintLevel(0);
 }
 
 void LinearImplicitLinearSolve::UpdateStiffness(mfem::SparseMatrix &K)
 {
-   (void)K;
+   K_ = *mfem::Add(1.0, K, 0.0, K);
    BuildSystemMatrix();
-
-   auto new_prec = std::make_unique<mfem::DSmoother>(*T_);
-   lin_solver_.SetOperator(*T_);
-   lin_solver_.SetPreconditioner(*new_prec);
-   A_prec_ = std::move(new_prec);
+   ConfigureLinearSolver();
 }
 
 void LinearImplicitLinearSolve::UpdateMass(mfem::SparseMatrix &M)
 {
-    (void)M;  
+    M_ = *mfem::Add(1.0, M, 0.0, M);
     BuildSystemMatrix();
-
-    auto new_prec = std::make_unique<mfem::DSmoother>(*T_);
-    lin_solver_.SetOperator(*T_);
-    lin_solver_.SetPreconditioner(*new_prec);
-    A_prec_ = std::move(new_prec);
+    ConfigureLinearSolver();
 }
