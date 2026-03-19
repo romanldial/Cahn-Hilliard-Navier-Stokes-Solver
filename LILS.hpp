@@ -20,6 +20,8 @@ public:
    void Step(mfem::Vector &u_current,
              const mfem::Vector &source,
              mfem::Vector &u_next);
+   // Step with a precomputed RHS
+   void StepWithRHS(const mfem::Vector &rhs, mfem::Vector &u_next);
    void UpdateStiffness(mfem::SparseMatrix &K);
    // Update the stiffness matrix in the time loop
    void UpdateMass(mfem::SparseMatrix &M);
@@ -34,7 +36,7 @@ private:
 
    std::unique_ptr<mfem::SparseMatrix> T_;
    mfem::Vector rhs_;
-   std::unique_ptr<mfem::DSmoother> A_prec_;
+   std::unique_ptr<mfem::GSSmoother> A_prec_;
    std::unique_ptr<mfem::CGSolver> lin_solver_;
 };
 

@@ -78,19 +78,24 @@ void ChemicalPotentialOperator::BuildMatricies()
     RHS_stiffness.Assemble();
     LHS_mass.Assemble();
 
-    RHS_mass.FormSystemMatrix(ess_tdof_list_, RHS_M_);
-    RHS_stiffness.FormSystemMatrix(ess_tdof_list_, RHS_K_);
-    LHS_mass.FormSystemMatrix(ess_tdof_list_, LHS_M_);
+    mfem::OperatorPtr op_RHS_M, op_RHS_K, op_LHS_M;
+    mfem::Vector dummy_x, dummy_b;
 
-    RHS_M_ = *RHS_mass.LoseMat();
-    RHS_K_ = *RHS_stiffness.LoseMat();
-    LHS_M_ = *LHS_mass.LoseMat();
+    RHS_mass.FormSystemMatrix(ess_tdof_list_, op_RHS_M);
+    RHS_stiffness.FormSystemMatrix(ess_tdof_list_, op_RHS_K);
+    LHS_mass.FormSystemMatrix(ess_tdof_list_, op_LHS_M);
+
+    RHS_M_ = *op_RHS_M.As<mfem::SparseMatrix>();
+    RHS_K_ = *op_RHS_K.As<mfem::SparseMatrix>();
+    LHS_M_ = *op_LHS_M.As<mfem::SparseMatrix>();
 }
 
 void ChemicalPotentialOperator::SolveSystem(mfem::Vector &phi_current,
                                              mfem::Vector &phi_next,
                                              mfem::real_t dt)
 {
+    lils_->SetTimeStep(dt);
+
     mfem::Vector rhs_nonlinear(phi_current.Size());
     mfem::Vector rhs_stiffness(phi_current.Size());
     mfem::Vector rhs_mu_complete(phi_current.Size());
@@ -110,9 +115,9 @@ void ChemicalPotentialOperator::SolveSystem(mfem::Vector &phi_current,
     cg_mu.SetPrintLevel(0);
     cg_mu.Mult(rhs_mu_complete, mu_);
 
-    lils_->UpdateMass(RHS_M_);
-    lils_->UpdateStiffness(RHS_K_);
-    lils_->Step(phi_current, phi_next);
+    mfem::Vector rhs_phi(phi_current.Size());
+    LHS_M_.Mult(phi_current, rhs_phi);
+    lils_->StepWithRHS(rhs_phi, phi_next);
     phi_current = phi_next;
 }
 
@@ -120,7 +125,6 @@ void ChemicalPotentialOperator::UpdatePhi(const mfem::GridFunction &phi)
 {
     phi_lagged_gf_ = phi;
     BuildMatricies();
-    lils_->UpdateMass(LHS_M_);
     lils_->UpdateStiffness(RHS_K_);
 }
 
@@ -129,7 +133,6 @@ void ChemicalPotentialOperator::SetEpsilon(mfem::real_t epsilon)
     std::cout << "  SetEpsilon called..." << std::endl;
     params_.epsilon = epsilon;
     BuildMatricies();
-    lils_->UpdateMass(LHS_M_);
     lils_->UpdateStiffness(RHS_K_);
 }
 
@@ -138,7 +141,6 @@ void ChemicalPotentialOperator::SetSigma(mfem::real_t sigma)
     std::cout << "  SetSigma called..." << std::endl;
     params_.sigma = sigma;
     BuildMatricies();
-    lils_->UpdateMass(LHS_M_);
     lils_->UpdateStiffness(RHS_K_);
 }
 

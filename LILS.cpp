@@ -74,28 +74,32 @@ void LinearImplicitLinearSolve::Step(mfem::Vector &u_current,
    MFEM_VERIFY(rel_res == rel_res, "Linear solve residual is NaN.");
 }
 
+void LinearImplicitLinearSolve::StepWithRHS(const mfem::Vector &rhs,
+                                             mfem::Vector &u_next)
+{
+   lin_solver_->Mult(rhs, u_next);
+
+   mfem::Vector Au(rhs.Size());
+   T_->Mult(u_next, Au);
+   Au -= rhs;
+   const mfem::real_t rhs_n = rhs.Norml2();
+   const mfem::real_t rel_res = Au.Norml2() / (rhs_n > 0.0 ? rhs_n : 1.0);
+   MFEM_VERIFY(rel_res == rel_res, "Linear solve residual is NaN.");
+}
+
 void LinearImplicitLinearSolve::BuildSystemMatrix()
 {
-   std::cout << "      M_ finalized: " << M_.Finalized() << std::endl;
-   std::cout << "      K_ finalized: " << K_.Finalized() << std::endl;
-   std::cout << "      M_ num nonzero elements: " << M_.NumNonZeroElems() << std::endl;
-   std::cout << "      K_ num nonzero elements: " << K_.NumNonZeroElems() << std::endl;
    if (!M_.Finalized()) M_.Finalize();
    if (!K_.Finalized()) K_.Finalize();
-   
-   std::cout << "      Cloning M_..." << std::endl;
    auto newT = std::make_unique<mfem::SparseMatrix>(M_);
-   std::cout << "      Adding dt*K_..." << std::endl;
    newT->Add(dt_, K_);                      // T = M + dt*K
-   std::cout << "      Finalizing T_..." << std::endl;
    newT->Finalize();
-   std::cout << "      T_ size: " << newT->Height() << "x" << newT->Width() << std::endl;
    T_ = std::move(newT);
 }
 
 void LinearImplicitLinearSolve::ConfigureLinearSolver()
 {
-   A_prec_ = std::make_unique<mfem::DSmoother>(*T_);
+   A_prec_ = std::make_unique<mfem::GSSmoother>(*T_);
    lin_solver_ = std::make_unique<mfem::CGSolver>();
    lin_solver_->SetOperator(*T_);
    lin_solver_->SetPreconditioner(*A_prec_);
