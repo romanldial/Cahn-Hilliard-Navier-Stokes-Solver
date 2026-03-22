@@ -5,7 +5,8 @@
     //               mu =   (3sigma/4epsilon)(phi)(phi^2-1) 
     //                    - (3/2)(sigma*epsilon)(Laplacial phi)
     //
-    //     This potential can then be expressed in the weak formulation as follows:
+    //     This potential can then be expressed in the weak formulation for the 
+    //     Cahn-Hilliard Equation follows:
     //     
     //      int{mu * v}d\Omega =   int{(3sigma/4epsilon)(phi)(phi^2-1) * v} d\Omega 
     //                           + Int{(3/2)(sigma*epsilon)(Nabla phi dot Nabla v)}d\Omega
@@ -14,7 +15,6 @@
     //      In our case, the surface integral term will vanish due to conservation 
     //      of mass.
 #include "mfem.hpp"
-#include "LILS.hpp"
 #include "ChemicalPotential.hpp"
 #include <iostream>
 
@@ -25,13 +25,11 @@ ChemicalPotentialOperator::ChemicalPotentialOperator(
     mfem::FiniteElementSpace  &fespace,
     mfem::Vector              &X,
     const mfem::Array<int>    &ess_tdof_list,
-    mfem::real_t              dt,
     const Params              &params)
     : mfem::Operator(fespace.GetTrueVSize()),
       fespace_(fespace),
       ess_tdof_list_(ess_tdof_list),
-      params_(params),
-      dt_(dt)
+      params_(params)
 {
     std::cout << "  Setting space..." << std::endl;
     phi_lagged_gf_.SetSpace(&fespace_);
@@ -41,14 +39,13 @@ ChemicalPotentialOperator::ChemicalPotentialOperator(
     BuildMatricies();
     std::cout << "  LHS_M size: " << LHS_M_.Height() << "x" << LHS_M_.Width() << std::endl;
     std::cout << "  RHS_K size: " << RHS_K_.Height() << "x" << RHS_K_.Width() << std::endl;
-    std::cout << "  Creating LILS..." << std::endl;
-    lils_ = new LinearImplicitLinearSolve(LHS_M_, RHS_K_, dt);
+    std::cout << "  Setting mu FESpace..." << std::endl;
+    mu_.SetSpace(&fespace_);
     std::cout << "  Constructor done." << std::endl;
 }
 
 ChemicalPotentialOperator::~ChemicalPotentialOperator()
 {
-    delete lils_;
 }
 
 void ChemicalPotentialOperator::BuildMatricies()
@@ -90,12 +87,8 @@ void ChemicalPotentialOperator::BuildMatricies()
     LHS_M_ = *op_LHS_M.As<mfem::SparseMatrix>();
 }
 
-void ChemicalPotentialOperator::SolveSystem(mfem::Vector &phi_current,
-                                             mfem::Vector &phi_next,
-                                             mfem::real_t dt)
+void ChemicalPotentialOperator::SolveSystem(mfem::Vector &phi_current)
 {
-    lils_->SetTimeStep(dt);
-
     mfem::Vector rhs_nonlinear(phi_current.Size());
     mfem::Vector rhs_stiffness(phi_current.Size());
     mfem::Vector rhs_mu_complete(phi_current.Size());
@@ -114,18 +107,12 @@ void ChemicalPotentialOperator::SolveSystem(mfem::Vector &phi_current,
     cg_mu.SetMaxIter(1000);
     cg_mu.SetPrintLevel(0);
     cg_mu.Mult(rhs_mu_complete, mu_);
-
-    mfem::Vector rhs_phi(phi_current.Size());
-    LHS_M_.Mult(phi_current, rhs_phi);
-    lils_->StepWithRHS(rhs_phi, phi_next);
-    phi_current = phi_next;
 }
 
 void ChemicalPotentialOperator::UpdatePhi(const mfem::GridFunction &phi)
 {
     phi_lagged_gf_ = phi;
     BuildMatricies();
-    lils_->UpdateStiffness(RHS_K_);
 }
 
 void ChemicalPotentialOperator::SetEpsilon(mfem::real_t epsilon)
@@ -133,7 +120,6 @@ void ChemicalPotentialOperator::SetEpsilon(mfem::real_t epsilon)
     std::cout << "  SetEpsilon called..." << std::endl;
     params_.epsilon = epsilon;
     BuildMatricies();
-    lils_->UpdateStiffness(RHS_K_);
 }
 
 void ChemicalPotentialOperator::SetSigma(mfem::real_t sigma)
@@ -141,10 +127,9 @@ void ChemicalPotentialOperator::SetSigma(mfem::real_t sigma)
     std::cout << "  SetSigma called..." << std::endl;
     params_.sigma = sigma;
     BuildMatricies();
-    lils_->UpdateStiffness(RHS_K_);
 }
 
 const mfem::SparseMatrix &ChemicalPotentialOperator::GetLHS_M() const { return LHS_M_; }
 const mfem::SparseMatrix &ChemicalPotentialOperator::GetRHS_M() const { return RHS_M_; }
 const mfem::SparseMatrix &ChemicalPotentialOperator::GetRHS_K() const { return RHS_K_; }
-const mfem::Vector       &ChemicalPotentialOperator::GetMu()    const { return mu_;    }
+      mfem::GridFunction &ChemicalPotentialOperator::GetMu()          { return mu_;    }

@@ -7,8 +7,8 @@
 class LinearImplicitLinearSolve
 {
 public:
-   LinearImplicitLinearSolve(mfem::SparseMatrix &M,
-                             mfem::SparseMatrix &K,
+   LinearImplicitLinearSolve(const mfem::SparseMatrix &M,
+                             const mfem::SparseMatrix &K,
                              mfem::real_t dt);
 
    void SetTimeStep(mfem::real_t dt);
@@ -22,9 +22,9 @@ public:
              mfem::Vector &u_next);
    // Step with a precomputed RHS
    void StepWithRHS(const mfem::Vector &rhs, mfem::Vector &u_next);
-   void UpdateStiffness(mfem::SparseMatrix &K);
+   void UpdateStiffness(const mfem::SparseMatrix &K);
    // Update the stiffness matrix in the time loop
-   void UpdateMass(mfem::SparseMatrix &M);
+   void UpdateMass(const mfem::SparseMatrix &M);
    // Update the mass matrix in the time loop
 private:
    void BuildSystemMatrix();

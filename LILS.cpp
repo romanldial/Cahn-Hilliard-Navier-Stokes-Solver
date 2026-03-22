@@ -13,8 +13,8 @@
 //      We will take the mass and stiffness matricies from the caller 
 //      and use a Conjugate Gradient solver with a Gauss-Seidel
 //      preconditioner to solve the system.
-LinearImplicitLinearSolve::LinearImplicitLinearSolve(mfem::SparseMatrix &M,
-                                                     mfem::SparseMatrix &K,
+LinearImplicitLinearSolve::LinearImplicitLinearSolve(const mfem::SparseMatrix &M,
+                                                     const mfem::SparseMatrix &K,
                                                      mfem::real_t dt)
    : M_(M),               // Mass matrix
      K_(K),               // Stiffness matrix
@@ -109,14 +109,14 @@ void LinearImplicitLinearSolve::ConfigureLinearSolver()
    lin_solver_->SetPrintLevel(0);
 }
 
-void LinearImplicitLinearSolve::UpdateStiffness(mfem::SparseMatrix &K)
+void LinearImplicitLinearSolve::UpdateStiffness(const mfem::SparseMatrix &K)
 {
    K_ = *mfem::Add(1.0, K, 0.0, K);
    BuildSystemMatrix();
    ConfigureLinearSolver();
 }
 
-void LinearImplicitLinearSolve::UpdateMass(mfem::SparseMatrix &M)
+void LinearImplicitLinearSolve::UpdateMass(const mfem::SparseMatrix &M)
 {
     M_ = *mfem::Add(1.0, M, 0.0, M);
     BuildSystemMatrix();

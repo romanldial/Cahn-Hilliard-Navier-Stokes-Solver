@@ -54,16 +54,6 @@ int main(int argc, char *argv[])
     ess_bdr       = 1;
     fespace->GetEssentialTrueDofs(ess_bdr, ess_tdof_list);
 
-    //      Set Up Visit Data Collection
-    mfem::VisItDataCollection *visit_dc = new mfem::VisItDataCollection("chem_pot_ex1", &mesh);
-    visit_dc->SetPrefixPath("/lustre/isaac24/scratch/rdial/mfem/mfem-4.9/examples/output/chem_pot_ex1");
-    visit_dc->SetPrecision(8);
-    visit_dc->RegisterField("Order Paramater", &phi_current);
-    visit_dc->SetCycle(0);
-    visit_dc->SetTime(0.0);
-    visit_dc->Save();
-    int vis_steps = 1;
-
     //      Initalize and set up the Chemical Potential Operator.
     mfem::real_t dt     = 1e-4;
 
@@ -76,10 +66,20 @@ int main(int argc, char *argv[])
     ChemicalPotentialOperator chemPotOp(*fespace,
                                          phi_current,
                                          ess_tdof_list,
-                                         dt,
                                          params);
 
     std::cout << "ChemicalPotentialOperator built." << std::endl;
+
+    //      Set Up Visit Data Collection
+    mfem::VisItDataCollection *visit_dc = new mfem::VisItDataCollection("chem_pot_ex1", &mesh);
+    visit_dc->SetPrefixPath("/lustre/isaac24/scratch/rdial/mfem/mfem-4.9/examples/output/chem_pot_ex1");
+    visit_dc->SetPrecision(8);
+    mfem::GridFunction &mu_gf = chemPotOp.GetMu();
+    visit_dc->RegisterField("Chemical Potential", &mu_gf);
+    visit_dc->SetCycle(0);
+    visit_dc->SetTime(0.0);
+    visit_dc->Save();
+    int vis_steps = 1;
 
     mfem::real_t epsilon   = 0.1;
     mfem::real_t sigma     = 1.0;
@@ -93,15 +93,18 @@ int main(int argc, char *argv[])
     mfem::real_t t_i    = 1e-6;
     mfem::real_t t_f    = 0.1;
     int step = 0;
+    mfem::GridFunction phi_next(fespace);
+    LinearImplicitLinearSolve lils(chemPotOp.GetLHS_M(), 
+                                   chemPotOp.GetRHS_K(), dt);
     while (t_i < t_f) {
         std::cout << "Step " << step << " t=" << t_i << std::endl;
         phi_lagged = phi_current;
         chemPotOp.UpdatePhi(phi_lagged);
         std::cout << "  Phi Updated" << std::endl;
-        chemPotOp.SolveSystem(phi_current,
-                              phi_lagged,
-                              dt);
+        chemPotOp.SolveSystem(phi_current);
         std::cout << "  System Solved" << std::endl;
+        lils.UpdateStiffness(chemPotOp.GetRHS_K());
+        lils.Step(phi_current, phi_next);
         t_i += dt;
         step++;
         std::cout << "t = " << t_i << std::endl;
