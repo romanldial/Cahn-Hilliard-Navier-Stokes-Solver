@@ -38,8 +38,6 @@ public:
     void Mult(const mfem::Vector &x, mfem::Vector &y) const override {}
 
 private:
-    mfem::Vector               X_;
-
     mfem::FiniteElementSpace   &fespace_;
     const mfem::Array<int>     &ess_tdof_list_;
     Params                     params_;

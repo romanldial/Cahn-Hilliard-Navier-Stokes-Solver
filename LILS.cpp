@@ -15,13 +15,15 @@
 //      preconditioner to solve the system.
 LinearImplicitLinearSolve::LinearImplicitLinearSolve(const mfem::SparseMatrix &M,
                                                      const mfem::SparseMatrix &K,
-                                                     mfem::real_t dt)
-   : M_(M),               // Mass matrix
-     K_(K),               // Stiffness matrix
-     dt_(dt),             // Time step size
-     T_(nullptr),         // System matrix (M + dt*K)
-     rhs_(M.Height()),    // Right-hand side vector
-     lin_solver_()        // Linear solver
+                                                     mfem::real_t              dt,
+                                                     const mfem::Array<int>   &ess_tdof_list)
+   : M_(M),                          // Mass matrix
+     K_(K),                          // Stiffness matrix
+     dt_(dt),                        // Time step size
+     ess_tdof_list_(ess_tdof_list),  // Essential DOFs
+     T_(nullptr),                    // System matrix (M + dt*K)
+     rhs_(M.Height()),               // Right-hand side vector
+     lin_solver_()                   // Linear solver
 {
    std::cout << "    LILS: Building system matrix..." << std::endl;
    BuildSystemMatrix();
@@ -47,6 +49,9 @@ void LinearImplicitLinearSolve::Step(mfem::Vector &u_current,
                                      mfem::Vector &u_next)
 {
    M_.Mult(u_current, rhs_);
+
+   rhs_.SetSubVector(ess_tdof_list_, 0.0);
+
    lin_solver_->Mult(rhs_, u_next);
 
    mfem::Vector Au(rhs_.Size());
@@ -63,6 +68,9 @@ void LinearImplicitLinearSolve::Step(mfem::Vector &u_current,
 {
    M_.Mult(u_current, rhs_);
    rhs_.Add(dt_, source);
+
+   rhs_.SetSubVector(ess_tdof_list_, 0.0);
+
    lin_solver_->Mult(rhs_, u_next);
 
 
@@ -77,6 +85,8 @@ void LinearImplicitLinearSolve::Step(mfem::Vector &u_current,
 void LinearImplicitLinearSolve::StepWithRHS(const mfem::Vector &rhs,
                                              mfem::Vector &u_next)
 {
+   rhs_.SetSubVector(ess_tdof_list_, 0.0);
+   
    lin_solver_->Mult(rhs, u_next);
 
    mfem::Vector Au(rhs.Size());

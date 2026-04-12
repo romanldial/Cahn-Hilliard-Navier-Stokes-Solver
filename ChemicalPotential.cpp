@@ -13,7 +13,7 @@
     //                           - Int{(3/2)(sigma*epsilon)(Nabla phi dot n_hat) * v} dS
     //
     //      In our case, the surface integral term will vanish due to conservation 
-    //      of mass.
+    //      of mass.  
 #include "mfem.hpp"
 #include "ChemicalPotential.hpp"
 #include <iostream>

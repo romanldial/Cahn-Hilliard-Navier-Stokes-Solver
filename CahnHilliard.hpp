@@ -1,10 +1,7 @@
 // Header file for CahnHilliard.cpp
 
 #pragma once
-
 #include "mfem.hpp"
-#include "ChemicalPotential.hpp"
-#include "LILS.hpp"
 
 class CahnHilliardOperator : public mfem::Operator
 {
@@ -15,17 +12,20 @@ public:
     ~CahnHilliardOperator();
 
     void SetMobility(mfem::real_t (*f)(const mfem::Vector &));
-
     void BuildMatricies();
 
-    void SolveSystem();
+    void ComputeSource(const mfem::Vector &mu_vec, 
+                       mfem::Vector       &source) const;
 
-    mfem::FunctionCoefficient &GetMobility();
+    void Mult(const mfem::Vector &x, mfem::Vector &y) const override;
+
+    const mfem::SparseMatrix &GetMass()   const;
+    const mfem::SparseMatrix &GetKmob()   const;
+
 private:
-        mfem::FiniteElementSpace  &fespace;
-        const mfem::Array<int>    &ess_tdof_list;
-
-        mfem::GridFunction        mu_;
-        mfem::FunctionCoefficient mobility_;
-        mfem::SparseMatrix        PHI_, MU_;
+        mfem::FiniteElementSpace  &fespace_;
+        const mfem::Array<int>     ess_tdof_list_;
+        mfem::FunctionCoefficient *mobility_;
+        mfem::SparseMatrix        M_phi_;
+        mfem::SparseMatrix        K_mob_;
 };

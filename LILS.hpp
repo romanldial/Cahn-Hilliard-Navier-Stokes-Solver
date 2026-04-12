@@ -9,7 +9,8 @@ class LinearImplicitLinearSolve
 public:
    LinearImplicitLinearSolve(const mfem::SparseMatrix &M,
                              const mfem::SparseMatrix &K,
-                             mfem::real_t dt);
+                             mfem::real_t              dt,
+                            const mfem::Array<int>    &ess_tdof_list);
 
    void SetTimeStep(mfem::real_t dt);
    mfem::real_t GetTimeStep() const;
@@ -32,7 +33,8 @@ private:
 
    mfem::SparseMatrix M_;
    mfem::SparseMatrix K_;
-   mfem::real_t dt_;
+   mfem::real_t       dt_;
+   mfem::Array<int>   ess_tdof_list_;
 
    std::unique_ptr<mfem::SparseMatrix> T_;
    mfem::Vector rhs_;

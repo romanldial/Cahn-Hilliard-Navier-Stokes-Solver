@@ -94,17 +94,32 @@ int main(int argc, char *argv[])
     mfem::real_t t_f    = 0.1;
     int step = 0;
     mfem::GridFunction phi_next(fespace);
-    LinearImplicitLinearSolve lils(chemPotOp.GetLHS_M(), 
-                                   chemPotOp.GetRHS_K(), dt);
+    LinearImplicitLinearSolve lils(cahnHilOp.GetMass(), 
+                                   cahnHilOp.GetKmob(), 
+                                   dt);
+    
+    mfem::Vector source(fespace->GetTrueVSize());
+
     while (t_i < t_f) {
         std::cout << "Step " << step << " t=" << t_i << std::endl;
+
         phi_lagged = phi_current;
+
         chemPotOp.UpdatePhi(phi_lagged);
         std::cout << "  Phi Updated" << std::endl;
         chemPotOp.SolveSystem(phi_current);
         std::cout << "  System Solved" << std::endl;
-        lils.UpdateStiffness(chemPotOp.GetRHS_K());
+        mfem::GridFunction &mu_gf = chemPotOp.GetMu();
+        std::cout << "  Coppied Mu" << std::endl;
+
+        cahnHilOp.ComputeSource(mu_gf, source);
+        source.Neg();
+        std::cout << "  Computed Source Term Mu" << std::endl;
+
         lils.Step(phi_current, phi_next);
+        phi_current = phi_next;
+        std::cout << "  Advanced Step" << std::endl;
+        
         t_i += dt;
         step++;
         std::cout << "t = " << t_i << std::endl;
