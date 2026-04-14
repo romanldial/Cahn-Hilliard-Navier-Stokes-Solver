@@ -1,0 +1,122 @@
+# =========================================================
+# Build directories
+# =========================================================
+build/
+build-*/
+cmake-build-*/
+out/
+bin/
+lib/
+
+# =========================================================
+# CMake
+# =========================================================
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+Testing/
+cmake-build-debug/
+cmake-build-release/
+
+# =========================================================
+# Make / Autotools
+# =========================================================
+Makefile
+makefile
+GNUmakefile
+aclocal.m4
+autom4te.cache/
+m4/
+libtool
+config.status
+config.log
+configure
+compile
+
+# =========================================================
+# Object files, libraries, executables
+# =========================================================
+*.o
+*.obj
+*.lo
+*.la
+*.a
+*.so
+*.so.*
+*.dylib
+*.dll
+*.lib
+*.exe
+*.out
+*.app
+
+# =========================================================
+# Dependency / debug / profiling files
+# =========================================================
+*.d
+*.gcda
+*.gcno
+*.gcov
+*.gprof
+gmon.out
+core
+core.*
+vgcore.*
+callgrind.out.*
+cachegrind.out.*
+massif.out.*
+
+# =========================================================
+# MPI / runtime logs / batch outputs
+# =========================================================
+*.log
+*.err
+*.stdout
+*.stderr
+slurm-*.out
+slurm-*.err
+*.job
+*.batch
+
+# =========================================================
+# Editors / IDEs
+# =========================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# =========================================================
+# Python helpers / notebooks often present in sci-comp repos
+# =========================================================
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# =========================================================
+# Testing / temporary / local scratch
+# =========================================================
+tmp/
+temp/
+scratch/
+.cache/
+
+# =========================================================
+# Generated data / postprocessing output
+# Uncomment if these are not meant to be versioned
+# =========================================================
+# *.vtk
+# *.vtu
+# *.pvtu
+# *.xdmf
+# *.h5
+# *.hdf5
+# *.csv
+# *.dat
+# *.png
+# *.pdf

@@ -1,0 +1,47 @@
+// Copyright 2025 Esteban Cisneros
+// Linear Implicit Linear Solve (LILS): backward-Euler time integrator
+// for problems of the form  M du/dt = -K u.
+
+#pragma once
+
+#include <memory>
+
+#include "mfem.hpp"
+
+class LinearImplicitLinearSolve {
+ public:
+  LinearImplicitLinearSolve(const mfem::SparseMatrix &M,
+                            const mfem::SparseMatrix &K,
+                            mfem::real_t dt,
+                            const mfem::Array<int> &ess_tdof_list);
+
+  void SetTimeStep(mfem::real_t dt);
+  mfem::real_t GetTimeStep() const;
+
+  // Solve (M + dt*K) u_next = M u_current.
+  void Step(mfem::Vector &u_current, mfem::Vector &u_next);
+  // Solve (M + dt*K) u_next = M u_current + dt*source.
+  void Step(mfem::Vector &u_current,
+            const mfem::Vector &source,
+            mfem::Vector &u_next);
+  // Step with a precomputed RHS.
+  void StepWithRHS(const mfem::Vector &rhs, mfem::Vector &u_next);
+  // Update the stiffness matrix in the time loop.
+  void UpdateStiffness(const mfem::SparseMatrix &K);
+  // Update the mass matrix in the time loop.
+  void UpdateMass(const mfem::SparseMatrix &M);
+
+ private:
+  void BuildSystemMatrix();
+  void ConfigureLinearSolver();
+
+  mfem::SparseMatrix M_;
+  mfem::SparseMatrix K_;
+  mfem::real_t dt_;
+  mfem::Array<int> ess_tdof_list_;
+
+  std::unique_ptr<mfem::SparseMatrix> T_;
+  mfem::Vector rhs_;
+  std::unique_ptr<mfem::GSSmoother> A_prec_;
+  std::unique_ptr<mfem::CGSolver> lin_solver_;
+};

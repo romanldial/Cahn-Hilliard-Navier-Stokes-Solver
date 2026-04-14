@@ -1,0 +1,125 @@
+// Copyright 2025 Esteban Cisneros
+//
+// Linear Implicit Linear Solve for problems of the form:
+//
+//   M du/dt = -K u
+//
+// Discretised via backward Euler:
+//
+//   (M + dt*K) v^{n+1} = M v^n
+//
+// A Conjugate Gradient solver with a Gauss-Seidel preconditioner is
+// used to solve the resulting linear system.
+
+#include "LILS.hpp"
+
+#include <iostream>
+#include <memory>
+#include <utility>
+
+LinearImplicitLinearSolve::LinearImplicitLinearSolve(
+    const mfem::SparseMatrix &M,
+    const mfem::SparseMatrix &K,
+    mfem::real_t dt,
+    const mfem::Array<int> &ess_tdof_list)
+    : M_(M),
+      K_(K),
+      dt_(dt),
+      ess_tdof_list_(ess_tdof_list),
+      T_(nullptr),
+      rhs_(M.Height()),
+      lin_solver_() {
+  std::cout << "    LILS: Building system matrix..." << std::endl;
+  BuildSystemMatrix();
+  std::cout << "    LILS: T_ size: "
+            << T_->Height() << "x" << T_->Width() << std::endl;
+  std::cout << "    LILS: Configuring solver..." << std::endl;
+  ConfigureLinearSolver();
+  std::cout << "    LILS: Constructor done." << std::endl;
+}
+
+void LinearImplicitLinearSolve::SetTimeStep(mfem::real_t dt) {
+  dt_ = dt;
+  BuildSystemMatrix();
+  ConfigureLinearSolver();
+}
+
+mfem::real_t LinearImplicitLinearSolve::GetTimeStep() const {
+  return dt_;
+}
+
+void LinearImplicitLinearSolve::Step(mfem::Vector &u_current,
+                                     mfem::Vector &u_next) {
+  M_.Mult(u_current, rhs_);
+  rhs_.SetSubVector(ess_tdof_list_, 0.0);
+  lin_solver_->Mult(rhs_, u_next);
+
+  mfem::Vector Au(rhs_.Size());
+  T_->Mult(u_next, Au);
+  Au -= rhs_;
+  const mfem::real_t rhs_n = rhs_.Norml2();
+  const mfem::real_t rel_res = Au.Norml2() / (rhs_n > 0.0 ? rhs_n : 1.0);
+  MFEM_VERIFY(rel_res == rel_res, "Linear solve residual is NaN.");
+}
+
+void LinearImplicitLinearSolve::Step(mfem::Vector &u_current,
+                                     const mfem::Vector &source,
+                                     mfem::Vector &u_next) {
+  M_.Mult(u_current, rhs_);
+  rhs_.Add(dt_, source);
+  rhs_.SetSubVector(ess_tdof_list_, 0.0);
+  lin_solver_->Mult(rhs_, u_next);
+
+  mfem::Vector Au(rhs_.Size());
+  T_->Mult(u_next, Au);
+  Au -= rhs_;
+  const mfem::real_t rhs_n = rhs_.Norml2();
+  const mfem::real_t rel_res = Au.Norml2() / (rhs_n > 0.0 ? rhs_n : 1.0);
+  MFEM_VERIFY(rel_res == rel_res, "Linear solve residual is NaN.");
+}
+
+void LinearImplicitLinearSolve::StepWithRHS(const mfem::Vector &rhs,
+                                             mfem::Vector &u_next) {
+  rhs_.SetSubVector(ess_tdof_list_, 0.0);
+  lin_solver_->Mult(rhs, u_next);
+
+  mfem::Vector Au(rhs.Size());
+  T_->Mult(u_next, Au);
+  Au -= rhs;
+  const mfem::real_t rhs_n = rhs.Norml2();
+  const mfem::real_t rel_res = Au.Norml2() / (rhs_n > 0.0 ? rhs_n : 1.0);
+  MFEM_VERIFY(rel_res == rel_res, "Linear solve residual is NaN.");
+}
+
+void LinearImplicitLinearSolve::BuildSystemMatrix() {
+  if (!M_.Finalized()) M_.Finalize();
+  if (!K_.Finalized()) K_.Finalize();
+  auto new_t = std::make_unique<mfem::SparseMatrix>(M_);
+  new_t->Add(dt_, K_);  // T = M + dt*K
+  new_t->Finalize();
+  T_ = std::move(new_t);
+}
+
+void LinearImplicitLinearSolve::ConfigureLinearSolver() {
+  A_prec_ = std::make_unique<mfem::GSSmoother>(*T_);
+  lin_solver_ = std::make_unique<mfem::CGSolver>();
+  lin_solver_->SetOperator(*T_);
+  lin_solver_->SetPreconditioner(*A_prec_);
+  lin_solver_->SetRelTol(1e-8);
+  lin_solver_->SetAbsTol(0.0);
+  lin_solver_->SetMaxIter(1000);
+  lin_solver_->SetPrintLevel(0);
+}
+
+void LinearImplicitLinearSolve::UpdateStiffness(
+    const mfem::SparseMatrix &K) {
+  K_ = *mfem::Add(1.0, K, 0.0, K);
+  BuildSystemMatrix();
+  ConfigureLinearSolver();
+}
+
+void LinearImplicitLinearSolve::UpdateMass(const mfem::SparseMatrix &M) {
+  M_ = *mfem::Add(1.0, M, 0.0, M);
+  BuildSystemMatrix();
+  ConfigureLinearSolver();
+}
