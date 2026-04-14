@@ -1,2 +1,8 @@
 # Cahn-Hilliard-Navier-Stokes-Solver
-This repo contains the tools to use my Cahn-Hilliard Navier-Stokes Solver ussing LLNL's MFEM. 
+This project implements a multi-phase flow solver based on Cahn-Hilliard Navier-Stokes formulation.
+
+# Dependencies
+The key dependency is LLNL's [MFEM](https://mfem.org).
+
+# Documentation
+Pending.
